@@ -7,10 +7,11 @@
  * Name          : serpico.c
  * @author       : Roberto D'Amico (bobboteck)
  * Last modified : 2021/02/16
- * Revision      : 1.0.0
+ * Revision      : 1.1.0
  * 
  * Modification History:
  * Date         Version     Modified By		Description
+ * 2021-02-19	1.1.0		Roberto D'Amico	Test of US HC-SR04 sensor
  * 2021-02-16	1.0.0		Roberto D'Amico	Move forward and backward the Robot
  * 
  * The MIT License (MIT)
@@ -44,6 +45,10 @@
 #include "hardware/clocks.h"
 
 const uint LED_PIN = 25;
+const uint US_TRIGGER = 4;
+const uint US_ECHO = 5;
+
+uint32_t usMeter(void);
 
 int main()
 {
@@ -51,6 +56,13 @@ int main()
 
     gpio_init(LED_PIN);
     gpio_set_dir(LED_PIN, GPIO_OUT);
+
+    gpio_init(US_TRIGGER);
+    gpio_set_dir(US_TRIGGER, GPIO_OUT);
+    gpio_put(US_TRIGGER, 0);
+
+    gpio_init(US_ECHO);
+    gpio_set_dir(US_ECHO, GPIO_IN);
 
     // GPIO 0, 1, 2 and 3 are allocated as PWM
     gpio_set_function(0, GPIO_FUNC_PWM);
@@ -87,10 +99,12 @@ int main()
     uint32_t clockHz = clock_get_hz(clk_sys);
     printf("clk_sys: %dHz\n", clockHz);
 
+    uint32_t misura = 0;
+
     while (1)
     {
         gpio_put(LED_PIN, 1);
-
+/*
         // From max speed forward to max speed backward on both motors
         for(uint16_t pwmDuty=0; pwmDuty<5000; pwmDuty++)
         {
@@ -99,9 +113,14 @@ int main()
             sleep_ms(1);
             printf("pwmDuty: %d\n", pwmDuty);
         }
+*/
+
+        misura = usMeter();
+        printf("Misura: %d cm\n", misura);
+        sleep_ms(300);
 
         gpio_put(LED_PIN, 0);
-
+/*
         // From max speed backward to max speed forward on both motors
         for(uint16_t pwmDuty=5000; pwmDuty>0; pwmDuty--)
         {
@@ -110,5 +129,35 @@ int main()
             sleep_ms(1);
             printf("pwmDuty: %d\n", pwmDuty);
         }
+*/
+
+        misura = usMeter();
+        printf("Misura: %d cm\n", misura);
+        sleep_ms(300);
     }
+}
+
+uint32_t usMeter(void)
+{
+    uint32_t start_echo_time=0, end_echo_time=0, distance=0;
+
+    gpio_put(US_TRIGGER, 1);
+    sleep_us(5);
+    gpio_put(US_TRIGGER, 0);
+
+    while(gpio_get(US_ECHO) == 0)
+    {
+        start_echo_time = time_us_32();
+    }
+
+    while(gpio_get(US_ECHO) == 1)
+    {
+        end_echo_time = time_us_32();
+    }
+
+    distance = ((end_echo_time - start_echo_time) * 0.0343) / 2;
+
+	//printf("DEBUG-%d-%d-%d", start_echo_time, end_echo_time, distance);
+
+    return distance;
 }
