@@ -7,11 +7,10 @@
  * Name          : serpico.c
  * @author       : Roberto D'Amico (bobboteck)
  * Last modified : 2021/02/16
- * Revision      : 1.1.0
+ * Revision      : 1.0.0
  * 
  * Modification History:
  * Date         Version     Modified By		Description
- * 2021-02-19	1.1.0		Roberto D'Amico	Test of US HC-SR04 sensor
  * 2021-02-16	1.0.0		Roberto D'Amico	Move forward and backward the Robot
  * 
  * The MIT License (MIT)
@@ -49,6 +48,7 @@ const uint US_TRIGGER = 4;
 const uint US_ECHO = 5;
 
 uint32_t usMeter(void);
+void turn(uint s0, uint s1);
 
 int main()
 {
@@ -99,41 +99,70 @@ int main()
     uint32_t clockHz = clock_get_hz(clk_sys);
     printf("clk_sys: %dHz\n", clockHz);
 
-    uint32_t misura = 0;
+    uint16_t pwmDuty = 2500;
+
+	for(int i=0;i<5;i++)
+	{
+		gpio_put(LED_PIN, 1);
+		sleep_ms(250);
+		gpio_put(LED_PIN, 0);
+		sleep_ms(250);
+	}
+
+    uint32_t obstacleDistance = 0;
+    //obstacleDistance = usMeter();
 
     while (1)
     {
-        gpio_put(LED_PIN, 1);
 /*
-        // From max speed forward to max speed backward on both motors
-        for(uint16_t pwmDuty=0; pwmDuty<5000; pwmDuty++)
+        if(obstacleDistance >= 15)
         {
-            pwm_set_both_levels(slice0, pwmDuty, pwmDuty);
-            pwm_set_both_levels(slice1, pwmDuty, pwmDuty);
-            sleep_ms(1);
-            printf("pwmDuty: %d\n", pwmDuty);
+            if(pwmDuty < 5000)
+            {
+                pwmDuty += 100;
+                pwm_set_both_levels(slice0, pwmDuty, pwmDuty);
+                pwm_set_both_levels(slice1, pwmDuty, pwmDuty);
+            }
         }
+        else if(obstacleDistance >= 8  && obstacleDistance < 15)
+        {
+            if(pwmDuty > 2500)
+            {
+                pwmDuty -= 100;
+                pwm_set_both_levels(slice0, pwmDuty, pwmDuty);
+                pwm_set_both_levels(slice1, pwmDuty, pwmDuty);
+            }
+        }
+        else if(obstacleDistance < 8)
+        {
+            gpio_put(LED_PIN, 1);
+
+            turn(slice0, slice1);
+
+            gpio_put(LED_PIN, 0);
+        }
+
+        obstacleDistance = usMeter();
 */
 
-        misura = usMeter();
-        printf("Misura: %d cm\n", misura);
-        sleep_ms(300);
-
-        gpio_put(LED_PIN, 0);
-/*
-        // From max speed backward to max speed forward on both motors
-        for(uint16_t pwmDuty=5000; pwmDuty>0; pwmDuty--)
-        {
-            pwm_set_both_levels(slice0, pwmDuty, pwmDuty);
-            pwm_set_both_levels(slice1, pwmDuty, pwmDuty);
-            sleep_ms(1);
-            printf("pwmDuty: %d\n", pwmDuty);
-        }
-*/
-
-        misura = usMeter();
-        printf("Misura: %d cm\n", misura);
-        sleep_ms(300);
+		obstacleDistance = usMeter();
+		
+		if(obstacleDistance > 10)
+		{
+			pwmDuty = (obstacleDistance * 10) + 3000;
+			
+			if(pwmDuty > 5000) pwmDuty=5000;
+			
+			pwm_set_both_levels(slice0, pwmDuty, pwmDuty);
+			pwm_set_both_levels(slice1, pwmDuty, pwmDuty);
+		}
+		else
+		{
+			turn(slice0, slice1);
+		}
+		
+        printf("Obstacle distance: %d cm - PWM Duty: %d\n", obstacleDistance, pwmDuty);
+        sleep_ms(100);
     }
 }
 
@@ -141,6 +170,7 @@ uint32_t usMeter(void)
 {
     uint32_t start_echo_time=0, end_echo_time=0, distance=0;
 
+    sleep_us(2);
     gpio_put(US_TRIGGER, 1);
     sleep_us(5);
     gpio_put(US_TRIGGER, 0);
@@ -150,14 +180,26 @@ uint32_t usMeter(void)
         start_echo_time = time_us_32();
     }
 
-    while(gpio_get(US_ECHO) == 1)
+    while(gpio_get(US_ECHO) == 1)// && (end_echo_time - start_echo_time) > 11450)
     {
         end_echo_time = time_us_32();
     }
 
     distance = ((end_echo_time - start_echo_time) * 0.0343) / 2;
 
-	//printf("DEBUG-%d-%d-%d", start_echo_time, end_echo_time, distance);
-
     return distance;
+}
+
+void turn(uint s0, uint s1)
+{
+    pwm_set_both_levels(s0, 2500, 2500);
+    pwm_set_both_levels(s1, 2500, 2500);
+
+    pwm_set_both_levels(s0, 1800, 1800);
+    pwm_set_both_levels(s1, 3000, 3000);
+
+    sleep_ms(1000);
+
+    pwm_set_both_levels(s0, 2500, 2500);
+    pwm_set_both_levels(s1, 2500, 2500);
 }
