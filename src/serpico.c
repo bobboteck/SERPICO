@@ -180,12 +180,16 @@ uint32_t usMeter(void)
         start_echo_time = time_us_32();
     }
 
-    while(gpio_get(US_ECHO) == 1)// && (end_echo_time - start_echo_time) > 11450)
+	end_echo_time = start_echo_time;
+
+    while(gpio_get(US_ECHO) == 1 && (end_echo_time - start_echo_time) < 11600)
     {
         end_echo_time = time_us_32();
     }
 
     distance = ((end_echo_time - start_echo_time) * 0.0343) / 2;
+
+	//printf("Start: %d - End: %d - Distance: %d cm\n",start_echo_time, end_echo_time, distance);
 
     return distance;
 }
