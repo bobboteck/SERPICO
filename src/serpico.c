@@ -10,13 +10,15 @@
  * Revision      : 1.0.0
  * 
  * Modification History:
- * Date         Version     Modified By		Description
- * 2021-02-16	1.0.0		Roberto D'Amico	Move forward and backward the Robot
+ * Date         Version Modified By     Description
+ * 2021-03-01   1.2.0   Roberto D'Amico Implemented sensor limit and move
+ * 2021-02-19   1.1.0   Roberto D'Amico Test US HC-SR04 Sensor - OK!
+ * 2021-02-16   1.0.0   Roberto D'Amico Move forward and backward the Robot
  * 
  * The MIT License (MIT)
  *
- *  This file is part of the SERPICO Project (https://github.com/bobboteck/SERPICO).
- *	Copyright (c) 2015 Roberto D'Amico (bobboteck).
+ * This file is part of the SERPICO Project (https://github.com/bobboteck/SERPICO).
+ * Copyright (c) 2021 Roberto D'Amico (bobboteck).
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -54,13 +56,14 @@ int main()
 {
     stdio_init_all();
 
+    // Led on PICO
     gpio_init(LED_PIN);
     gpio_set_dir(LED_PIN, GPIO_OUT);
-
+    // Pin used to drive the Trigger of HC-SR04
     gpio_init(US_TRIGGER);
     gpio_set_dir(US_TRIGGER, GPIO_OUT);
     gpio_put(US_TRIGGER, 0);
-
+    // Pin used to read the Echo of HC-SR04
     gpio_init(US_ECHO);
     gpio_set_dir(US_ECHO, GPIO_IN);
 
@@ -79,16 +82,16 @@ int main()
     pwm_set_phase_correct(slice0, false);
     pwm_set_clkdiv_int_frac(slice0, 1, 4);
     pwm_set_output_polarity(slice0, false, true);
-    // Set Free running, No phase correct, int 1, frac 4 and channel B inverted for Slice 0
+    // Set Free running, No phase correct, int 1, frac 4 and channel B inverted for Slice 1
     pwm_set_clkdiv_mode(slice1, PWM_DIV_FREE_RUNNING);
     pwm_set_phase_correct(slice1, false);
     pwm_set_clkdiv_int_frac(slice1, 1, 4);
     pwm_set_output_polarity(slice1, false, true);
 
-    // Set the TOP register to 5000, which with the system frequency at 125MHz, corresponds to a frequency of 20KHz for PWM
+    // Set the TOP register to 5000, which with the system frequency at 125MHz, corresponds to a frequency of 20KHz for PWM of Slice 0
     pwm_set_wrap(slice0, 5000);
     pwm_set_both_levels(slice0, 2500, 2500);
-
+    // Set the TOP register to 5000, which with the system frequency at 125MHz, corresponds to a frequency of 20KHz for PWM of Slice 1
     pwm_set_wrap(slice1, 5000);
     pwm_set_both_levels(slice1, 2500, 2500);
 
@@ -96,114 +99,105 @@ int main()
     pwm_set_enabled(slice0, true);
     pwm_set_enabled(slice1, true);
 
+    // Print over serial the system clock frequency
     uint32_t clockHz = clock_get_hz(clk_sys);
     printf("clk_sys: %dHz\n", clockHz);
 
+    // Flash on board led five times
+    for(int i=0;i<5;i++)
+    {
+        gpio_put(LED_PIN, 1);
+        sleep_ms(250);
+        gpio_put(LED_PIN, 0);
+        sleep_ms(250);
+    }
+
     uint16_t pwmDuty = 2500;
-
-	for(int i=0;i<5;i++)
-	{
-		gpio_put(LED_PIN, 1);
-		sleep_ms(250);
-		gpio_put(LED_PIN, 0);
-		sleep_ms(250);
-	}
-
     uint32_t obstacleDistance = 0;
-    //obstacleDistance = usMeter();
 
     while (1)
     {
-/*
-        if(obstacleDistance >= 15)
-        {
-            if(pwmDuty < 5000)
-            {
-                pwmDuty += 100;
-                pwm_set_both_levels(slice0, pwmDuty, pwmDuty);
-                pwm_set_both_levels(slice1, pwmDuty, pwmDuty);
-            }
-        }
-        else if(obstacleDistance >= 8  && obstacleDistance < 15)
-        {
-            if(pwmDuty > 2500)
-            {
-                pwmDuty -= 100;
-                pwm_set_both_levels(slice0, pwmDuty, pwmDuty);
-                pwm_set_both_levels(slice1, pwmDuty, pwmDuty);
-            }
-        }
-        else if(obstacleDistance < 8)
-        {
-            gpio_put(LED_PIN, 1);
-
-            turn(slice0, slice1);
-
-            gpio_put(LED_PIN, 0);
-        }
-
+        // Read the distance with possible obstacle
         obstacleDistance = usMeter();
-*/
-
-		obstacleDistance = usMeter();
-		
-		if(obstacleDistance > 10)
-		{
-			pwmDuty = (obstacleDistance * 10) + 3000;
-			
-			if(pwmDuty > 5000) pwmDuty=5000;
-			
-			pwm_set_both_levels(slice0, pwmDuty, pwmDuty);
-			pwm_set_both_levels(slice1, pwmDuty, pwmDuty);
-		}
-		else
-		{
-			turn(slice0, slice1);
-		}
-		
+        // Check the measure
+        if(obstacleDistance > 10)
+        {
+            // Calculates the value to be assigned to the Duty Cycle control register
+            pwmDuty = (obstacleDistance * 10) + 3000;
+            // Check not to exceed the limit of 5000
+            if(pwmDuty > 5000) pwmDuty=5000;
+            // Set the Duty Cycle on all Slice
+            pwm_set_both_levels(slice0, pwmDuty, pwmDuty);
+            pwm_set_both_levels(slice1, pwmDuty, pwmDuty);
+        }
+        else
+        {
+            // Call function to turn the Robot
+            turn(slice0, slice1);
+        }
+        
+        // Print debug information over serial
         printf("Obstacle distance: %d cm - PWM Duty: %d\n", obstacleDistance, pwmDuty);
         sleep_ms(100);
     }
 }
 
+/**
+ * Read the distance with possible obstacle
+ * 
+ */
 uint32_t usMeter(void)
 {
     uint32_t start_echo_time=0, end_echo_time=0, distance=0;
 
+    // Send trigger pulse
     sleep_us(2);
     gpio_put(US_TRIGGER, 1);
     sleep_us(5);
     gpio_put(US_TRIGGER, 0);
-
+    
+    // Wait for the Echo output pin to go high and store the time
     while(gpio_get(US_ECHO) == 0)
     {
         start_echo_time = time_us_32();
     }
 
-	end_echo_time = start_echo_time;
+    end_echo_time = start_echo_time;
 
+    // Wait for the Echo output pin to go low and store the time
     while(gpio_get(US_ECHO) == 1 && (end_echo_time - start_echo_time) < 11600)
     {
         end_echo_time = time_us_32();
     }
 
+    // Calculate the distance
     distance = ((end_echo_time - start_echo_time) * 0.0343) / 2;
 
-	//printf("Start: %d - End: %d - Distance: %d cm\n",start_echo_time, end_echo_time, distance);
+    //printf("Start: %d - End: %d - Distance: %d cm\n",start_echo_time, end_echo_time, distance);
 
     return distance;
 }
 
+/**
+ * Turn Robot 
+ * 
+ * @param s0 The Slice for the Right Motor
+ * @param S1 The Slice for the Left Motor
+ */
 void turn(uint s0, uint s1)
 {
+    // Stop the motor
     pwm_set_both_levels(s0, 2500, 2500);
     pwm_set_both_levels(s1, 2500, 2500);
 
+    // Turn
     pwm_set_both_levels(s0, 1800, 1800);
     pwm_set_both_levels(s1, 3000, 3000);
 
+    // Wait while the Robot turns 
     sleep_ms(1000);
 
+    // Stop the motor
     pwm_set_both_levels(s0, 2500, 2500);
     pwm_set_both_levels(s1, 2500, 2500);
 }

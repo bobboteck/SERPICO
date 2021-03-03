@@ -20,13 +20,13 @@ For the other output, I used an old USB cable that I connected directly to the b
 
 ## Circuit
 
-To simplify as much as possible, the realization of the Robot, the circuit is mounted on a bread-board.
+To simplify as much as possible, the realization of the Robot, the circuit is mounted on a bread-board. In the image below you can see the assebly schema.
 
-![Circuit on bread-board](media/bread-board.jpg)
+![Circuit on bread-board](media/serpico-assembly.jpg)
 
-In the next table the connection between Pico and DRV8833:
+In the next table the connection between PICO and DRV8833:
 
-|Pico GPIO|DRV8833|
+|PICO GPIO|DRV8833|
 |---|---|
 |GPIO 0|IN2|
 |GPIO 1|IN1|
@@ -37,13 +37,34 @@ Other connection of DRV33:
 
 |DRV8833|Motors|USB Power Bank|
 | --- | --- | --- |
-|VCC||5V USB|
-|GND||GND USB|
+|VCC||USB 5V Power|
+|GND||USB Power GND|
 |OUT 1|Right Motor||
 |OUT 2|Right Motor||
 |OUT 3|Left Motor||
 |OUT 4|Left Motor||
 
-## Next step
+Connection between HC-SR04 and PICO:
 
-The next step is to use an HC-SR04 ultrasonic sensor to identify any obstacles.
+|HC-SR04|Direction|PICO GPIO|USB Power Bank|
+|---|:---:|---|---|
+|Trigger| < |GPIO 4|-|
+|Echo| > |GPIO 5 (*)|-|
+|VCC|-|-|USB 5V Power|
+|GND|-|-|USB Power GND|
+
+## How to compile
+
+Simply follow this istructions:
+
+```bash
+$ git clone https://github.com/bobboteck/SERPICO.git
+$ cd SERPICO
+$ mkdir build
+$ cd build
+$ PICO_SDK_PATH=~/pico/pico-sdk/
+$ cmake ..
+$ make
+```
+
+The PICO_SDK_PATH is the path where you have cloned the SDK, if you followed the official guide the path in the example is correct.
