@@ -26,12 +26,12 @@ To simplify as much as possible, the realization of the Robot, the circuit is mo
 
 In the next table the connection between PICO and DRV8833:
 
-|PICO GPIO|DRV8833|
+|Pico GPIO|DRV8833|
 |---|---|
-|GPIO 0|IN2|
-|GPIO 1|IN1|
-|GPIO 2|IN4|
-|GPIO 3|IN3|
+|GPIO 2|IN2|
+|GPIO 3|IN1|
+|GPIO 4|IN4|
+|GPIO 5|IN3|
 
 Other connection of DRV33:
 
@@ -46,12 +46,14 @@ Other connection of DRV33:
 
 Connection between HC-SR04 and PICO:
 
-|HC-SR04|Direction|PICO GPIO|USB Power Bank|
+|HC-SR04|Direction|Pico GPIO|USB Power Bank|
 |---|:---:|---|---|
-|Trigger| < |GPIO 4|-|
-|Echo| > |GPIO 5 (*)|-|
+|Trigger| < |GPIO 6|-|
+|Echo| > |GPIO 7 (*)|-|
 |VCC|-|-|USB 5V Power|
 |GND|-|-|USB Power GND|
+
+(*) Attention! Do not connect this pin directly to the Pico, but only with a voltage divider.
 
 ## How to compile
 
