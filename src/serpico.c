@@ -6,11 +6,12 @@
  * 
  * Name          : serpico.c
  * @author       : Roberto D'Amico (bobboteck)
- * Last modified : 2021/03/21
- * Revision      : 1.2.1
+ * Last modified : 2021/03/22
+ * Revision      : 1.3.0
  * 
  * Modification History:
  * Date         Version Modified By     Description
+ * 2021-03-22   1.3.0   Roberto D'Amico First test with bluetooth LE on UART0
  * 2021-03-21   1.2.1   Roberto D'Amico Simply move the GPIO to free the UART GPIOs
  * 2021-03-01   1.2.0   Roberto D'Amico Implemented sensor limit and move
  * 2021-02-19   1.1.0   Roberto D'Amico Test US HC-SR04 Sensor - OK!
@@ -45,6 +46,13 @@
 #include "pico/binary_info.h"
 #include "hardware/pwm.h"
 #include "hardware/clocks.h"
+#include "hardware/uart.h"
+#include "hardware/irq.h"
+
+#define UART_ID uart0
+#define BAUD_RATE 9600
+#define UART_TX_PIN 0
+#define UART_RX_PIN 1
 
 const uint LED_PIN = 25;
 const uint US_TRIGGER = 6;
@@ -52,10 +60,28 @@ const uint US_ECHO = 7;
 
 uint32_t usMeter(void);
 void turn(uint s0, uint s1);
+void onUart0Receive(void);
 
 int main()
 {
     stdio_init_all();
+
+    // Set up our UART with the required speed.
+    uart_init(UART_ID, BAUD_RATE);
+
+    // Set the TX and RX pins by using the function select on the GPIO
+    // Set datasheet for more information on function select
+    gpio_set_function(UART_TX_PIN, GPIO_FUNC_UART);
+    gpio_set_function(UART_RX_PIN, GPIO_FUNC_UART);
+    
+    // And set up and enable the interrupt handlers
+    //irq_set_exclusive_handler(UART_IRQ, onUart0Receive);
+    irq_set_exclusive_handler(UART0_IRQ, onUart0Receive);
+    irq_set_enabled(UART0_IRQ, true);
+
+    // Now enable the UART to send interrupts - RX only
+    uart_set_irq_enables(UART_ID, true, false);
+
 
     // Led on PICO
     gpio_init(LED_PIN);
@@ -128,18 +154,20 @@ int main()
             // Check not to exceed the limit of 5000
             if(pwmDuty > 5000) pwmDuty=5000;
             // Set the Duty Cycle on all Slice
-            pwm_set_both_levels(slice1, pwmDuty, pwmDuty);
-            pwm_set_both_levels(slice2, pwmDuty, pwmDuty);
+            //pwm_set_both_levels(slice1, pwmDuty, pwmDuty);
+            //pwm_set_both_levels(slice2, pwmDuty, pwmDuty);
         }
         else
         {
             // Call function to turn the Robot
-            turn(slice1, slice2);
+            //turn(slice1, slice2);
         }
         
         // Print debug information over serial
-        printf("Obstacle distance: %d cm - PWM Duty: %d\n", obstacleDistance, pwmDuty);
-        sleep_ms(100);
+        //printf("Obstacle distance: %d cm - PWM Duty: %d\n", obstacleDistance, pwmDuty);
+        printf("US:%d\n", obstacleDistance);
+        printf("DC:%d\n", pwmDuty);
+        sleep_ms(500);
     }
 }
 
@@ -201,4 +229,28 @@ void turn(uint s0, uint s1)
     // Stop the motor
     pwm_set_both_levels(s0, 2500, 2500);
     pwm_set_both_levels(s1, 2500, 2500);
+}
+
+
+void onUart0Receive(void)
+{
+    //char str[10];
+
+    while (uart_is_readable(UART_ID))
+    {
+        uint8_t ch = uart_getc(UART_ID);
+
+        //strcat(str,ch);
+
+        if(ch=='L')
+        {
+            gpio_put(LED_PIN, 0);
+        }
+        else if(ch=='E' || ch=='D' || ch==':' || ch=='0')
+        {
+            gpio_put(LED_PIN, 1);
+        }
+
+        uart_putc(UART_ID, ch);
+    }
 }
